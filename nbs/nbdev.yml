@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "covalent_api"
+  site-url: "https://hamish-haggerty.github.io/covalent_api"
+  description: "covalent api endpoints"
+  repo-branch: main
+  repo-url: "https://github.com/hamish-haggerty/covalent_api"
