@@ -39,4 +39,12 @@ d = { 'settings': { 'branch': 'main',
                                             'api_endpoints.covalent_api.union_top_n': ( 'covalent_api.html#union_top_n',
                                                                                         'api_endpoints/covalent_api.py'),
                                             'api_endpoints.covalent_api.url_decorator': ( 'covalent_api.html#url_decorator',
-                                                                                          'api_endpoints/covalent_api.py')}}}
+                                                                                          'api_endpoints/covalent_api.py')},
+            'api_endpoints.etherscan_api': { 'api_endpoints.etherscan_api.get_contract_creator': ( 'etherscan_api.html#get_contract_creator',
+                                                                                                   'api_endpoints/etherscan_api.py'),
+                                             'api_endpoints.etherscan_api.get_creation_date': ( 'etherscan_api.html#get_creation_date',
+                                                                                                'api_endpoints/etherscan_api.py'),
+                                             'api_endpoints.etherscan_api.get_first_n_addresses': ( 'etherscan_api.html#get_first_n_addresses',
+                                                                                                    'api_endpoints/etherscan_api.py'),
+                                             'api_endpoints.etherscan_api.get_last_n_transactions_for_erc20': ( 'etherscan_api.html#get_last_n_transactions_for_erc20',
+                                                                                                                'api_endpoints/etherscan_api.py')}}}
