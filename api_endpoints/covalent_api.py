@@ -4,7 +4,7 @@
 __all__ = ['logger', 'url_decorator', 'Covalent_Api', 'union_top_n', 'intersection_count', 'contract_name_if_k_holders',
            'contract_name_if_more_than_k_holders', 'contract_address_to_holders', 'Address_Holder_Data']
 
-# %% ../nbs/covalent_api.ipynb 4
+# %% ../nbs/covalent_api.ipynb 5
 import json
 import requests
 from requests.auth import HTTPBasicAuth
@@ -13,7 +13,7 @@ import time
 from fastcore.basics import *
 from fastcore.test import *
 
-# %% ../nbs/covalent_api.ipynb 5
+# %% ../nbs/covalent_api.ipynb 6
 import logging
 
 # Set up basic logging configuration
@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
 logger = logging.getLogger(__name__)
 
-# %% ../nbs/covalent_api.ipynb 6
+# %% ../nbs/covalent_api.ipynb 7
 #The general API is: 
 #                       def some_function(self,args):
 #                            url = ... #define the url using args
@@ -211,7 +211,7 @@ class Covalent_Api:
             
 
 
-# %% ../nbs/covalent_api.ipynb 17
+# %% ../nbs/covalent_api.ipynb 18
 def union_top_n(top_n:list)->list:
     """Computes all the coins in the top n portfolios of a token (i.e. union of all portfolios)    
     """
@@ -223,7 +223,7 @@ def union_top_n(top_n:list)->list:
                     ))
     return top_n
 
-# %% ../nbs/covalent_api.ipynb 20
+# %% ../nbs/covalent_api.ipynb 21
 def intersection_count(top_n:list, union_lst:list) -> dict:
     """
     For each token in the union, count how many holders have that token in their portfolio.
@@ -252,7 +252,7 @@ def intersection_count(top_n:list, union_lst:list) -> dict:
 
 
 
-# %% ../nbs/covalent_api.ipynb 25
+# %% ../nbs/covalent_api.ipynb 26
 def contract_name_if_k_holders(intersect_dict,k):
     "Get the contracts that have exactly k holders"
     if k>len(intersect_dict):
@@ -265,7 +265,7 @@ def contract_name_if_more_than_k_holders(intersect_dict,k):
         raise ValueError("k is greater than length of intersect_dict")
     return [contract_name for contract_name in intersect_dict.keys() if intersect_dict[contract_name] > k]
 
-# %% ../nbs/covalent_api.ipynb 28
+# %% ../nbs/covalent_api.ipynb 29
 def contract_address_to_holders(n_holders,contract_address):
     "Given an address, get the holders that hold that address"
     lst=[]
@@ -276,8 +276,11 @@ def contract_address_to_holders(n_holders,contract_address):
 
     return lst
 
-# %% ../nbs/covalent_api.ipynb 32
+# %% ../nbs/covalent_api.ipynb 33
 class Address_Holder_Data:
+    """Wrapper to compute the `intersect_dict` for a given tokenAddress, chainName, date, and n. Also computes e.g. 
+        the union along the way.
+    """
 
     def __init__(self, cov_api, tokenAddress, chainName,date,n,quote_currency="USD"): 
         store_attr()
