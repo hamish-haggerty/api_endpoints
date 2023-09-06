@@ -140,8 +140,6 @@ class Covalent_Api:
 
         base_url = f"https://api.covalenthq.com/v1/{chainName}/tokens/{tokenAddress}/token_holders_v2/?"
 
-        url = "https://api.covalenthq.com/v1/eth-mainnet/tokens/{tokenAddress}/token_holders_v2/?"
-
         
         if block_height is not None:
             base_url += f"&block-height={block_height}"
@@ -169,12 +167,20 @@ class Covalent_Api:
         for _holder in n_lst: #this loop should be parallelized, but ok for now provided it isn't too big.
 
             _address = _holder['address']
+            logger.info(f'getting {_address} portfolio')  # Logging statement in place of print
             _items = self.get_historical_balances(chainName=chainName,walletAddress=_address, quote_currency=quote_currency, date=date)
+            if _items == None:
+                print(f'failed to get {_address} portfolio: `get_historical_balances` returned `None`')  # Logging statement in place of print
+                _holder['portfolio']=None
+                _holder['portfolio_sum']=None
+                continue
+            
             #_items is a list of dictionaries
 
             #get the sum of the portfolio
 
             #TODO: Make this more efficient: possibly convert to numpy array or dataframe or something and then sum
+            
             none_to_zero = lambda x: 0 if x is None else x
             portfolio_sum = sum([none_to_zero(holding['quote']) for holding in _items])
             
@@ -211,7 +217,7 @@ class Covalent_Api:
             
 
 
-# %% ../nbs/covalent_api.ipynb 18
+# %% ../nbs/covalent_api.ipynb 20
 def union_top_n(top_n:list)->list:
     """Computes all the coins in the top n portfolios of a token (i.e. union of all portfolios)    
     """
@@ -223,7 +229,7 @@ def union_top_n(top_n:list)->list:
                     ))
     return top_n
 
-# %% ../nbs/covalent_api.ipynb 21
+# %% ../nbs/covalent_api.ipynb 23
 def intersection_count(top_n:list, union_lst:list) -> dict:
     """
     For each token in the union, count how many holders have that token in their portfolio.
@@ -252,7 +258,7 @@ def intersection_count(top_n:list, union_lst:list) -> dict:
 
 
 
-# %% ../nbs/covalent_api.ipynb 26
+# %% ../nbs/covalent_api.ipynb 28
 def contract_name_if_k_holders(intersect_dict,k):
     "Get the contracts that have exactly k holders"
     if k>len(intersect_dict):
@@ -265,7 +271,7 @@ def contract_name_if_more_than_k_holders(intersect_dict,k):
         raise ValueError("k is greater than length of intersect_dict")
     return [contract_name for contract_name in intersect_dict.keys() if intersect_dict[contract_name] > k]
 
-# %% ../nbs/covalent_api.ipynb 29
+# %% ../nbs/covalent_api.ipynb 31
 def contract_address_to_holders(n_holders,contract_address):
     "Given an address, get the holders that hold that address"
     lst=[]
@@ -276,7 +282,7 @@ def contract_address_to_holders(n_holders,contract_address):
 
     return lst
 
-# %% ../nbs/covalent_api.ipynb 33
+# %% ../nbs/covalent_api.ipynb 35
 class Address_Holder_Data:
     """Wrapper to compute the `intersect_dict` for a given tokenAddress, chainName, date, and n. Also computes e.g. 
         the union along the way.
