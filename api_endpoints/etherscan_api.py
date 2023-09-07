@@ -215,13 +215,13 @@ if __name__ == "__main__":
 from typing import Optional, Union
 from datetime import datetime
 
-def get_creation_date(api_key: str, contract_address: str, network: Optional[str] = 'mainnet') -> Union[str, None]:
+def get_creation_date(contract_address: str,api_key: str, network: Optional[str] = 'mainnet') -> Union[str, None]:
     """
     Fetch the creation date of an ERC20 contract using the Etherscan API.
     
     Parameters:
-    - api_key (str): The API key for Etherscan.
     - contract_address (str): The Ethereum address of the contract.
+    - api_key (str): The API key for Etherscan.
     - network (Optional[str]): The Ethereum network ('mainnet', 'ropsten', etc.). Default is 'mainnet'.
     
     Returns:

@@ -12,6 +12,7 @@ from requests.exceptions import HTTPError, RequestException
 import time
 from fastcore.basics import *
 from fastcore.test import *
+from typing import List
 
 # %% ../nbs/covalent_api.ipynb 6
 import logging
@@ -150,7 +151,7 @@ class Covalent_Api:
 
         return base_url
 
-    def get_holders_portfolios(self,n_lst,chainName:str,date:str,quote_currency="USD",log_output=False):
+    def get_holders_portfolios(self,n_lst:List[dict],chainName:str,date:str,quote_currency="USD",log_output=False):
         """Input: 
                 `n_lst`: a list of dictionaries containing the top holders of a token. Dictionary must contain the key 'address'.
                  See get_historical_balances for description of other inputs.
