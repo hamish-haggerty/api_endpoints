@@ -34,6 +34,7 @@ def url_decorator(func):
     def wrapper(self, *args, **kwargs):
         url = func(self, *args, **kwargs)
         return self.get_items(url)
+        #return self.get_items_with_timeout(url)
     return wrapper
 
 class Covalent_Api:
@@ -44,7 +45,7 @@ class Covalent_Api:
         self.api_key = api_key
 
 
-    def get_items(self, url, retries=3, delay=1):
+    def get_items(self, url, retries=3, delay=1,request_timeout=5):
         """Given a url, get the items from the API.
         Inputs:
             `url`, a string, the url to get the items from.
@@ -60,7 +61,7 @@ class Covalent_Api:
         #TODO: e.g. if it is a mevbot with heaps of transactions this might fail: perhaps needs a timer.
         while retries > 0:
             try:
-                response = requests.get(url, headers=headers, auth=basic)
+                response = requests.get(url, headers=headers, auth=basic, timeout=request_timeout)
                 response.raise_for_status()  # Check for HTTP errors
                 data = response.json()
 
@@ -157,6 +158,11 @@ class Covalent_Api:
                  See get_historical_balances for description of other inputs.
            Output: the same list of dictionaries with the portfolio added.
         """
+
+        #TODO: this address 0x80f8c8d0d29c99b7af1b4d97cad357061037ecb3 seems to give false data (~$20m for ShibaDoge
+        #Maybe should email covalent about this to let them know. Please see the dextools chart for shibadoge. 
+        #We plonked the info manually into the covalent API to verify and it looks like it is an issue on their end.
+        #Just something to be aware of: covalent seems to not be infallible.
 
         # Setting up logging level based on the log_output value
         if log_output:
