@@ -82,7 +82,7 @@ class EarlyWhales:
         self._first_n_addresses_lstofdict = [{'address': address} for address in self.first_n_addresses]
         
         self._first_n_addresses_lstofdict = self.cov_api.get_holders_portfolios(
-            n_lst=self._first_n_addresses_lstofdict, chainName=self.chainName, quote_currency="USD", date=self.creation_date, log_output=False)
+            wallet_list=self._first_n_addresses_lstofdict, chainName=self.chainName, quote_currency="USD", date=self.creation_date, log_output=False)
                         
         self.update_first_n_addresses_lstofdict()
 
