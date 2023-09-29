@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 #                            return self.get_items(url)
 
 #rather than writing self.get_items(url) every time, we can use a decorator to do this for us.
+from requests.exceptions import HTTPError, ReadTimeout, RequestException
 
 def url_decorator(func):
     def wrapper(self, *args, **kwargs):
@@ -46,60 +47,60 @@ class Covalent_Api:
         self.api_key = api_key
 
 
-    def get_items(self, url, retries=5, delay=1,request_timeout=10):
+    def get_items(self, url, retries=5, delay=1, request_timeout=10):
         """Given a url, get the items from the API.
-        Inputs:
-            `url`, a string, the url to get the items from.
-            `retries`, an integer, the number of times to retry the request.
-            `delay`, an integer, the number of seconds to wait between retries.
+            Inputs:
+                `url`, a string, the url to get the items from.
+                `retries`, an integer, the number of times to retry the request.
+                `delay`, an integer, the number of seconds to wait between retries.
 
-        Outputs:
-            `items`, a list of dictionaries, each dictionary containing information about a token/address/etc
+            Outputs:
+                `items`, a list of dictionaries, each dictionary containing information about a token/address/etc
         """
         headers = {"accept": "application/json"}
         basic = HTTPBasicAuth(f'{self.api_key}', '')
 
+        def handle_retry():
+            nonlocal retries
+            retries -= 1
+            time.sleep(delay)
+
         while retries > 0:
             try:
                 response = requests.get(url, headers=headers, auth=basic, timeout=request_timeout)
-                response.raise_for_status()  # Check for HTTP errors
-                data = response.json()
-
-                # Access 'data' field
-                data = data.get('data')
-                if data is None:
-                    logger.warning(f"No data received. Retries left: {retries}")
-                    retries -= 1
-                    time.sleep(delay)
-                    continue  # Continue to the next iteration of the loop to retry
+                response.raise_for_status()  
+                data = response.json()['data']  # Directly access 'data' field
                 
-                # Check if data is a list
-                if type(data) is list:
+                if data is None:
+                    logger.warning(f"No data received from {url}. Retries left: {retries}")
+                    handle_retry()
+                    continue
+
+                if isinstance(data, list):
                     return data
 
-                # Access 'items' field
                 return data.get('items')
-                
-            except HTTPError as e:
-                if e.response.status_code == 429:  # HTTP Status Code for 'Too Many Requests'
-                    time.sleep(delay)  # Adjust wait time
-                    retries -= 1
-                    continue  # Continue to the next iteration of the loop to retry
-                else:
-                    logger.error(f"HTTPError occurred: {str(e)}")
-                    return None
 
+            except ReadTimeout as e:
+                logger.warning(f"ReadTimeout occurred: {e} for URL: {url}. Retrying in {delay} seconds...")
+                handle_retry()
+                continue
             except RequestException as e:
-                logger.error(f"RequestException occurred: {str(e)}")
+                logger.warning(f"RequestException occurred: {e} for URL: {url}. Retrying in {delay} seconds...")
+                handle_retry()
+                continue
+            except HTTPError as e:
+                logger.warning(f"HTTPError occurred: {e} for URL: {url}. Retrying in {delay} seconds...")
+                handle_retry()
+                continue
+            except Exception as e:
+                logger.error(f"Unexpected error: {e} for URL: {url}. Returning None.")
                 return None
             
-            except Exception as e:
-                logger.error(f"An unexpected error occurred: {str(e)}")
-                return None
-
-        logger.warning(f"Exceeded the maximum number of retries ({retries}) without success")
-        return None  # Return None if maximum number of retries is exceeded without success
-
+        logger.warning(f"Exceeded the maximum number of retries ({retries}) for URL: {url} without success")
+        return None
+                    
+       
 
 
     @url_decorator
