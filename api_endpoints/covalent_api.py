@@ -46,7 +46,7 @@ class Covalent_Api:
         self.api_key = api_key
 
 
-    def get_items(self, url, retries=3, delay=1,request_timeout=5):
+    def get_items(self, url, retries=5, delay=1,request_timeout=10):
         """Given a url, get the items from the API.
         Inputs:
             `url`, a string, the url to get the items from.
@@ -59,7 +59,6 @@ class Covalent_Api:
         headers = {"accept": "application/json"}
         basic = HTTPBasicAuth(f'{self.api_key}', '')
 
-        #TODO: e.g. if it is a mevbot with heaps of transactions this might fail: perhaps needs a timer.
         while retries > 0:
             try:
                 response = requests.get(url, headers=headers, auth=basic, timeout=request_timeout)
@@ -69,24 +68,38 @@ class Covalent_Api:
                 # Access 'data' field
                 data = data.get('data')
                 if data is None:
-                    return None
-
+                    logger.warning(f"No data received. Retries left: {retries}")
+                    retries -= 1
+                    time.sleep(delay)
+                    continue  # Continue to the next iteration of the loop to retry
+                
                 # Check if data is a list
                 if type(data) is list:
                     return data
 
                 # Access 'items' field
                 return data.get('items')
-            
+                
             except HTTPError as e:
                 if e.response.status_code == 429:  # HTTP Status Code for 'Too Many Requests'
                     time.sleep(delay)  # Adjust wait time
                     retries -= 1
+                    continue  # Continue to the next iteration of the loop to retry
                 else:
+                    logger.error(f"HTTPError occurred: {str(e)}")
                     return None
 
             except RequestException as e:
+                logger.error(f"RequestException occurred: {str(e)}")
                 return None
+            
+            except Exception as e:
+                logger.error(f"An unexpected error occurred: {str(e)}")
+                return None
+
+        logger.warning(f"Exceeded the maximum number of retries ({retries}) without success")
+        return None  # Return None if maximum number of retries is exceeded without success
+
 
 
     @url_decorator
@@ -378,7 +391,7 @@ class WalletListToIntersectDict:
         self.intersect_dict = self.get_data()
         
     def get_data(self):
-        self.portfolios = cov_api.get_holders_portfolios(wallet_list=self.wallet_list,chainName=self.chainName,date=self.date)
+        self.portfolios = self.cov_api.get_holders_portfolios(wallet_list=self.wallet_list,chainName=self.chainName,date=self.date)
         self.portfolios = strip_none(self.portfolios)
         self.portfolios = strip_dust(self.portfolios)
         self.union_portfolios  = Union_Portfolios(self.portfolios)#i.e. all the tokens ("union")
