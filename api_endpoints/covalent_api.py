@@ -2,8 +2,8 @@
 
 # %% auto 0
 __all__ = ['logger', 'url_decorator', 'Covalent_Api', 'Union_Portfolios', 'intersection_count', 'contract_name_if_k_holders',
-           'contract_name_if_more_than_k_holders', 'contract_address_to_holders', 'AddressTopnToIntersectDict',
-           'strip_none', 'strip_dust', 'WalletListToIntersectDict', 'get_intersect_values', 'print_intersect_values']
+           'contract_name_if_more_than_k_holders', 'holders_more_than_k_addresses', 'strip_none', 'strip_dust',
+           'WalletListToIntersectDict', 'AddressTopnToIntersectDict', 'print_tokens_in_portfolios']
 
 # %% ../nbs/covalent_api.ipynb 5
 import json
@@ -14,6 +14,8 @@ import time
 from fastcore.basics import *
 from fastcore.test import *
 from typing import List
+from prettytable import PrettyTable
+
 
 # %% ../nbs/covalent_api.ipynb 6
 import logging
@@ -43,11 +45,14 @@ class Covalent_Api:
     """This class is used to interact with the Covalent API.
     """
 
-    def __init__(self, api_key='cqt_rQ37X8PXHqGxkycgdXHJtkFhfwyP'):
+    def __init__(self, api_key='cqt_rQ37X8PXHqGxkycgdXHJtkFhfwyP',request_timeout=30,retries=5,delay=1):
         self.api_key = api_key
+        self.request_timeout = request_timeout
+        self.retries = retries
+        self.delay = delay
 
 
-    def get_items(self, url, retries=5, delay=1, request_timeout=10):
+    def get_items(self, url):
         """Given a url, get the items from the API.
             Inputs:
                 `url`, a string, the url to get the items from.
@@ -57,13 +62,17 @@ class Covalent_Api:
             Outputs:
                 `items`, a list of dictionaries, each dictionary containing information about a token/address/etc
         """
+        retries = self.retries
+        delay = self.delay
+        request_timeout = self.request_timeout
+
         headers = {"accept": "application/json"}
         basic = HTTPBasicAuth(f'{self.api_key}', '')
 
         def handle_retry():
             nonlocal retries
             retries -= 1
-            time.sleep(delay)
+            time.sleep(self.delay)
 
         while retries > 0:
             try:
@@ -99,9 +108,6 @@ class Covalent_Api:
             
         logger.warning(f"Exceeded the maximum number of retries ({retries}) for URL: {url} without success")
         return None
-                    
-       
-
 
     @url_decorator
     def get_historical_balances(self,chainName:str,walletAddress:str,date:str, quote_currency="USD")->list:
@@ -293,49 +299,24 @@ def contract_name_if_more_than_k_holders(intersect_dict,k):
     return [contract_name for contract_name in intersect_dict.keys() if intersect_dict[contract_name] > k]
 
 # %% ../nbs/covalent_api.ipynb 31
-def contract_address_to_holders(n_holders,contract_address):
-    "Given an address, get the holders that hold that address"
-    lst=[]
-    for _holder in n_holders:
-        for _token in _holder['portfolio']:
-            if _token['contract_address'] == contract_address:
-                lst.append(_holder)
-
+def holders_more_than_k_addresses(portfolios: list[dict], contract_addresses: list[str], k: int) -> list[dict]:
+    """
+    Given a list of portfolios, get the holders that hold more than k of the given addresses.
+    Inputs:
+        portfolios: list of portfolio (dicts)
+        contract_addresses: list of contract addresses
+        k: minimum number of contract_addresses a holder should have
+    Output:
+        list[dict]: list of holders that hold more than k of the given addresses.
+    """
+    lst = []
+    for _holder in portfolios:
+        holder_addresses = set(_token['contract_address'] for _token in _holder['portfolio'])
+        if len(holder_addresses.intersection(contract_addresses)) > k:
+            lst.append(_holder)
     return lst
 
-# %% ../nbs/covalent_api.ipynb 35
-class AddressTopnToIntersectDict:
-    """Wrapper to compute the `intersect_dict` for a given tokenAddress, chainName, date, and n. 
-        In other words, this class is a wrapper to compute the intersection of the top n holders
-        of a token on a given date. 
-        Comment: The top n holders are current, the date is historical. So, it will compute the historical portfolios (on the given date) of the current top n holders.
-       Inputs:
-            `cov_api`: an instance of the Covalent_Api class
-            `tokenAddress`: the token address of the token we want to compute the `intersect_dict` for. e.g. '0x72e4f9F808C49A2a61dE9C5896298920Dc4EEEa9' (hpbitcoin)
-            `chainName`: e.g. 'eth-mainnet'
-            `date`: e.g. '2023-08-30'
-            `n`: the number of holders we want to compute the `intersect_dict` for
-            `quote_currency`: e.g. 'USD'
-    
-"""
-
-    def __init__(self, cov_api, tokenAddress, chainName,date,n,quote_currency="USD"): 
-        store_attr()
-        assert n <= 100, f"The value of n should be <= 100. The current value is {n}."
-        
-        self.intersect_dict = self.get_data()
-        
-    def get_data(self):
-        self.token_holders = self.cov_api.get_token_holders(chainName=self.chainName, tokenAddress=self.tokenAddress, page_size=100, page_number=0)
-        self.top_n_holders = [self.token_holders[i] for i in range(self.n)]
-        self.top_n_holders = self.cov_api.get_holders_portfolios(wallet_list=self.top_n_holders,chainName=self.chainName,quote_currency=self.quote_currency,date=self.date)
-        self.union_top_n = Union_Portfolios(self.top_n_holders)
-        self.intersect_dict_top_n = intersection_count(wallet_list=self.top_n_holders, union_lst=self.union_top_n)
-
-        return self.intersect_dict_top_n
-
-
-# %% ../nbs/covalent_api.ipynb 38
+# %% ../nbs/covalent_api.ipynb 34
 def strip_none(portfolios:List[dict])->List[dict]:
     """Strip the holdings that have no quote
         Inputs: 
@@ -362,18 +343,17 @@ def strip_dust(portfolios:List[dict])->List[dict]:
         Outputs:
             portfolios: list of `portfolio` dictionaries with no `None` quotes
     """
-
     for portfolio in portfolios:
 
         stripped_portfolio=[]
         for _holding in portfolio['portfolio']:
-            if float(_holding['quote']) >= 0.01:
+            if float(_holding['quote']) >= 1.0: #somewhat arbitrary, we choose $1USD. can also do _holding['type'] ~= 'dust'. something to keep in mind
                 stripped_portfolio.append(_holding)
         portfolio['portfolio'] = stripped_portfolio
 
     return portfolios
 
-# %% ../nbs/covalent_api.ipynb 39
+# %% ../nbs/covalent_api.ipynb 35
 class WalletListToIntersectDict:
     #TODO: needs a better name perhaps?
     """Wrapper to compute the `intersect_dict` given a list of wallets. Basically a map to the `intersect_dict` (and intermediate data) 
@@ -388,7 +368,6 @@ class WalletListToIntersectDict:
 
     def __init__(self, cov_api, wallet_list, chainName,date,quote_currency="USD"): 
         store_attr()
-        
         self.intersect_dict = self.get_data()
         
     def get_data(self):
@@ -400,37 +379,64 @@ class WalletListToIntersectDict:
 
         return self.intersect_dict
 
-# %% ../nbs/covalent_api.ipynb 45
-def get_intersect_values(token_list,portfolios):
-    """Given a list of tokens, and a list of portfolios, return a dictionary of the token values for each portfolio.
-        Inputs: 
-                token_list: list of tokens, e.g. [('Ether', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'),
-                            ('Ushi', '0x6dca182ac5e3f99985bc4ee0f726d6472ab1ec55')].
-                            So, for example the return value of `contract_name_if_k_holders` function.
-                portfolios: list of `portfolio` dictionaries
-        Outputs:
-                token_list_dict: dictionary, where keys are the portfolio addresses, and values are dictionaries giving the amount of each token
-                                 in USD that they hold.
-    """
-
-    token_list_dict={}
-    for _portfolio in portfolios:
-        token_list_dict[_portfolio['address']] = {}
-        for _token in token_list:
-            for _holding in _portfolio['portfolio']:
-                if _holding['contract_address'] == _token[1]: #second element of tuple is the contract address
-                    token_list_dict[_portfolio['address']][_token] = _holding['quote']
+# %% ../nbs/covalent_api.ipynb 39
+class AddressTopnToIntersectDict(WalletListToIntersectDict):
+    """Wrapper to compute the `intersect_dict` for a given tokenAddress, chainName, date, and n. 
+        In other words, this class is a wrapper to compute the intersection of the top n holders
+        of a token on a given date. First compute the top n holders, then pass the functionality
+        off to the parent class.
+        Comment: The top n holders are current, the date is historical. So, it will compute the historical portfolios (on the given date) of the current top n holders.
+       
+       Inputs:
+            `cov_api`: an instance of the Covalent_Api class
+            `tokenAddress`: the token address of the token we want to compute the `intersect_dict` for. e.g. '0x72e4f9F808C49A2a61dE9C5896298920Dc4EEEa9' (hpbitcoin)
+            `chainName`: e.g. 'eth-mainnet'
+            `date`: e.g. '2023-08-30'
+            `n`: the number of holders we want to compute the `intersect_dict` for
+            `quote_currency`: e.g. 'USD'
     
-    return token_list_dict
+"""
 
-def print_intersect_values(token_list_dict,portfolios):
-    "Function to print the values of the tokens in each portfolio."
+    def __init__(self, cov_api, tokenAddress, chainName,date,n,quote_currency="USD"): 
+        store_attr()
+        assert n <= 100, f"The value of n should be <= 100. The current value is {n}."
+        self.token_holders = self.cov_api.get_token_holders(chainName=self.chainName, tokenAddress=self.tokenAddress, page_size=100, page_number=0)
+        self.top_n_holders = self.token_holders[0:n] #the top n holders of the token, which will be `wallet_list` in the parent class
 
-    for _portfolio in portfolios:
-        print(f"Portfolio: {_portfolio['address']}")
-        for _token in token_list_dict[_portfolio['address']]:
-            print(f"\tToken: {_token[0]}")
-            print(f"\t\tQuote: ${token_list_dict[_portfolio['address']][_token]}")
-            print(f"\t\tPercentage of portfolio: {token_list_dict[_portfolio['address']][_token]/_portfolio['portfolio_sum'] * 100:.2f}%")
-            
+        super().__init__(cov_api=cov_api,wallet_list=self.top_n_holders, chainName=chainName, date=date, quote_currency=quote_currency)
+        
+
+
+# %% ../nbs/covalent_api.ipynb 43
+def print_tokens_in_portfolios(token_list, portfolios):
+    """Prints the values of each token in `token_list` in each portfolio in `portfolios`.
+    
+    Args:
+    token_list: A list of tokens.
+    portfolios: A list of portfolio dictionaries.
+    """
+    print("Calculating and Printing Values in Each Portfolio for the Following Tokens:")
+    token_table = PrettyTable(field_names=["Token Name", "Contract Address"])
+    for token in token_list:
+        token_table.add_row([token[0], token[1]])
+    print(token_table)
+    print("\nNow Printing the Coin Values for each Portfolio...\n")
+    
+    for portfolio in portfolios:
+        print(f"Portfolio: {portfolio['address']}\n")
+        
+        portfolio_table = PrettyTable(field_names=["Token", "Quote ($)", "Percentage of Portfolio (%)"])
+        token_values = {}
+        portfolio_sum = portfolio.get('portfolio_sum', 1) or 1  # avoid division by zero
+        
+        token_address_to_token = {token[1]: token for token in token_list}
+        
+        for holding in portfolio.get('portfolio', []):
+            token = token_address_to_token.get(holding['contract_address'])
+            if token:
+                quote = holding.get('quote', 0)
+                token_values[token] = quote
+                portfolio_table.add_row([token[0], f"${quote:.2f}", f"{quote / portfolio_sum * 100:.2f}"])
+        print(portfolio_table)
+        print("\n" + "="*80 + "\n")
 
