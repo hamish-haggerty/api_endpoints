@@ -2,7 +2,8 @@
 
 # %% auto 0
 __all__ = ['etherscan_api_key', 'pepe_address', 'pepe_deployer', 'bybit_address', 'fuckrace_address', 'fuckrace_deployer',
-           'get_contract_creator', 'get_first_n_addresses', 'get_last_n_transactions_for_erc20', 'get_creation_date']
+           'get_contract_creator', 'get_first_n_addresses', 'get_last_n_transactions_for_erc20', 'get_creation_date',
+           'BlockFetcher', 'generate_dates_from_year', 'generate_dates_between']
 
 # %% ../nbs/etherscan_api.ipynb 4
 import requests
@@ -10,7 +11,10 @@ import json
 import time
 
 # %% ../nbs/etherscan_api.ipynb 6
-etherscan_api_key = 'DWNVAVM1GPZK3PUIKM79AQ2ZZS1JUPI417'  #my API key for etherscan
+import os
+from dotenv import load_dotenv
+load_dotenv()
+etherscan_api_key = os.environ.get('etherscan_api_key')
 
 # %% ../nbs/etherscan_api.ipynb 7
 #Several relevant addresses for illustration purposes in the notebook (including testing etc).
@@ -258,4 +262,90 @@ def get_creation_date(contract_address: str,api_key: str, network: Optional[str]
             return None
     else:
         return None
+
+
+# %% ../nbs/etherscan_api.ipynb 24
+import json
+import time
+from datetime import datetime, timedelta
+import logging
+#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
+
+class BlockFetcher:
+    def __init__(self, etherscan_api_key, data_filename="../data/date_to_block.json"):
+        self.etherscan_api_key = etherscan_api_key
+        self.data_filename = data_filename
+        self.date_to_block = self.load_data()
+        
+    def load_data(self):
+        try:
+            with open(self.data_filename, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
+        
+    def save_data(self):
+        with open(self.data_filename, 'w') as f:
+            json.dump(self.date_to_block, f, indent=4)
+    
+    def get_block_for_date(self, date):
+        if date in self.date_to_block:
+            return self.date_to_block[date]
+
+        desired_timestamp = int(time.mktime(time.strptime(date, '%Y-%m-%d')))
+        block_number = self._get_block_by_timestamp(desired_timestamp)
+
+        if block_number is None or "Error" in str(block_number):
+            logging.info(f"Failed to fetch block number for date {date}")
+            self.date_to_block[date] = None
+            self.save_data()
+            return None
+        
+        self.date_to_block[date] = block_number
+        self.save_data()
+        return block_number
+
+    def _get_block_by_timestamp(self, timestamp):
+        base_url = "https://api.etherscan.io/api"
+        params = {
+            "module": "block",
+            "action": "getblocknobytime",
+            "timestamp": timestamp,
+            "closest": "before",
+            "apikey": self.etherscan_api_key
+        }
+
+        response = requests.get(base_url, params=params)
+        if response.status_code == 200:
+            result = response.json()
+            if result["status"] == "1":
+                return result["result"]
+            else:
+                logging.info(f"Fetched block number for timestamp {timestamp}: {result['message']}")
+                return None
+        else:
+            logging.info(f"HTTP Error {response.status_code} when fetching block number for timestamp {timestamp}")
+            return None
+
+def generate_dates_from_year(year=2014):
+    start_date = datetime(year, 1, 1)
+    end_date = datetime.now()  # Today's date
+    #end_date = datetime(year+2,1,1)
+
+    date_generated = [start_date + timedelta(days=x) for x in range(0, (end_date-start_date).days)]
+
+    return [date.strftime("%Y-%m-%d") for date in date_generated]
+
+def generate_dates_between(start_date_str, end_date_str):
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+    date_generated = [start_date + timedelta(days=x) for x in range(0, (end_date-start_date).days + 1)]
+
+    return [date.strftime("%Y-%m-%d") for date in date_generated]
+
+
+#dates = generate_dates_from_year(2014)
+#create_date_to_block_mapping(dates, etherscan_api_key)
 
