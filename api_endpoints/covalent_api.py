@@ -18,7 +18,7 @@ from fastcore.test import *
 from typing import List
 from prettytable import PrettyTable
 import matplotlib.pyplot as plt
-import api_endpoints.moralis_api as moralis_api 
+from .moralis_api import *
 
 # %% ../nbs/covalent_api.ipynb 6
 import logging
@@ -58,9 +58,12 @@ class Covalent_Api:
     """This class is used to interact with the Covalent API.
     """
 
-    def __init__(self, covalent_api_key=COVALENT_API_KEY,etherscan_api_key=ETHERSCAN_API_KEY,request_timeout=30,retries=5,delay=1):
+    def __init__(self, covalent_api_key=COVALENT_API_KEY,etherscan_api_key=ETHERSCAN_API_KEY,moralis_api_key=MORALIS_API_KEY,
+                 request_timeout=30,retries=5,delay=1
+                 ):
         self.covalent_api_key = covalent_api_key
         self.etherscan_api_key = etherscan_api_key
+        self.moralis_api_key = moralis_api_key
         self.request_timeout = request_timeout
         self.retries = retries
         self.delay = delay
