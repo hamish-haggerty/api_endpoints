@@ -3,9 +3,9 @@
 # %% auto 0
 __all__ = ['ZERION_AUTH', 'get_portfolio_value', 'get_wallet_positions', 'get_chart', 'unix_timestamp_to_date',
            'timestamp_price_pairs_to_date_dict', 'timestamp_price_pairs_to_date',
-           'timestamp_price_pairs_to_avg_date_dict']
+           'timestamp_price_pairs_to_avg_date_dict', 'token_address_to_prices']
 
-# %% ../nbs/zerion_api.ipynb 3
+# %% ../nbs/zerion_api.ipynb 4
 import json
 import requests
 import os
@@ -14,7 +14,7 @@ load_dotenv()
 
 ZERION_AUTH = os.environ.get('zerion_auth')
 
-# %% ../nbs/zerion_api.ipynb 5
+# %% ../nbs/zerion_api.ipynb 6
 def get_portfolio_value(address:str):
     """Get the total value of a portfolio in USD"""
     #TODO: Obviously need to complete docstring etc, but we can leave as vague for now; unclear if we will
@@ -35,9 +35,9 @@ def get_portfolio_value(address:str):
 
     return response.json()
 
-if __name__ == '__main__':
-    _dict = get_portfolio_value(_address)
-    print(f"Portfolio value according to zerion is: {_dict['data']['attributes']['positions_distribution_by_type']['wallet']}")
+# if __name__ == '__main__':
+#     _dict = get_portfolio_value(_address)
+#     print(f"Portfolio value according to zerion is: {_dict['data']['attributes']['positions_distribution_by_type']['wallet']}")
 
 
 # %% ../nbs/zerion_api.ipynb 9
@@ -65,7 +65,6 @@ def get_wallet_positions(address:str,
     url = f"https://api.zerion.io/v1/wallets/{address}/positions/?currency={currency}&{position_types_str}{protocol_ids_str}{fungible_ids_str}filter[trash]=only_non_trash&sort=value"
 
   
-
     headers = {
         "accept": "application/json",
         "authorization": ZERION_AUTH
@@ -76,16 +75,16 @@ def get_wallet_positions(address:str,
 
     return response.json() 
 
-#This is mostly to help prototyping below, perhaps we will put its own cell explaining "how to use" eventually
-if __name__ == '__main__':
+# #This is mostly to help prototyping below, perhaps we will put its own cell explaining "how to use" eventually
+# if __name__ == '__main__':
 
-    _dict = get_wallet_positions(_address)
-    _portfolio = [_dict['data'][i]['attributes'] for i in range(len(_dict['data']))]
-    print(f"First item in portfolio is: {_portfolio[0]}")
-    print('Note that there is other information in the _dict object:\n')
-    for k,v in _dict['data'][0].items():
-        print(f"\tKey type is: {type(k)}, Value type is: {type(v)}")
-        print(f"\tKey: {k}, Value: {v}\n")
+#     _dict = get_wallet_positions(_address)
+#     _portfolio = [_dict['data'][i]['attributes'] for i in range(len(_dict['data']))]
+#     print(f"First item in portfolio is: {_portfolio[0]}")
+#     print('Note that there is other information in the _dict object:\n')
+#     for k,v in _dict['data'][0].items():
+#         print(f"\tKey type is: {type(k)}, Value type is: {type(v)}")
+#         print(f"\tKey: {k}, Value: {v}\n")
 
 
 
@@ -93,6 +92,8 @@ if __name__ == '__main__':
 def get_chart(address:str,period:str='max',currency:str='usd'):
     """The 'charts' endpoint in the Zerion API allows users to retrieve a chart for a specific fungible asset.
         `period` may be any of: 'max','hour', 'day', 'week', 'month', 'year'.
+
+        API docs: https://developers.zerion.io/reference/getfungiblechart
     
     """
 
@@ -109,7 +110,7 @@ def get_chart(address:str,period:str='max',currency:str='usd'):
 
 
 
-# %% ../nbs/zerion_api.ipynb 22
+# %% ../nbs/zerion_api.ipynb 17
 import datetime
 from collections import defaultdict
 
@@ -159,4 +160,20 @@ def timestamp_price_pairs_to_avg_date_dict(points: list) -> dict:
 
     return {date: data['sum']/data['count'] for date, data in date_price_aggregator.items()}
 
+
+def token_address_to_prices(address:str,period:str='max',currency:str='usd')->dict:
+    """Wrapper function to get prices for a token address.
+        Inputs: 
+                address: str, address of token
+        Outputs:
+                dict where key is date string and value is price on that date.
+
+        #TODO: This gets ALL the prices since origin to the current date. I guess we want to save this so
+          we can cache and save on API calls. 
+    """
+
+    _points = get_chart(address=address,period=period,currency=currency)['data']['attributes']['points']
+    date_to_price_dict = timestamp_price_pairs_to_date_dict(_points)
+
+    return date_to_price_dict
 

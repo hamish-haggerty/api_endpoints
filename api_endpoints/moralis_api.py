@@ -110,7 +110,7 @@ class PriceFetcher:
             return None
 
 
-# %% ../nbs/moralis_api.ipynb 11
+# %% ../nbs/moralis_api.ipynb 9
 import datetime
 
 def get_all_prices(tokenAddress:str,etherscan_api_key:str,moralis_api_key:str):
